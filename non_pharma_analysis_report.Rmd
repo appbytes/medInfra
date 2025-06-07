@@ -657,57 +657,6 @@ growth_plot <- ggplot(monthly_trends %>% filter(!is.na(Growth_Rate)),
 grid.arrange(monthly_plot, growth_plot, nrow = 2)
 ```
 
-# Business Recommendations
-
-## Priority Action Items (Non-Pharma Focus)
-
-<div class="alert alert-success">
-<h4>Immediate Actions (Week 1-2)</h4>
-<ol>
-<li><strong>Focus on Top 20 A-Class Non-Pharma Items:</strong> These represent your highest-volume, lowest-risk market entry points within non-pharmaceuticals.</li>
-<li><strong>Research Pricing for Key Non-Pharma Items:</strong> Obtain wholesale prices for top non-pharma consumables identified.</li>
-<li><strong>Vendor Outreach (Non-Pharma):</strong> Contact smaller suppliers of non-pharmaceuticals for potential partnerships or consolidation.</li>
-</ol>
-</div>
-
-<div class="alert alert-info">
-<h4>Medium-term Strategy (Month 1-3)</h4>
-<ol>
-<li><strong>Category Specialization (Non-Pharma):</strong> Deepen focus on high-volume/high-margin non-pharmaceutical categories.</li>
-<li><strong>Inventory Optimization (Non-Pharma):</strong> Develop reorder points for high-volume non-pharma consumables.</li>
-<li><strong>Customer Acquisition:</strong> Use this hospital's non-pharma consumption patterns to target similar healthcare facilities.</li>
-</ol>
-</div>
-
-<div class="alert alert-warning">
-<h4>Long-term Goals (3-12 months)</h4>
-<ol>
-<li><strong>Technology Integration:</strong> Implement automated ordering systems for non-pharma supplies.</li>
-<li><strong>Geographic Expansion:</strong> Scale successful non-pharma model to other regions.</li>
-<li><strong>Value-added Services:</strong> Offer inventory management and forecasting services for non-pharmaceuticals.</li>
-</ol>
-</div>
-
-## Financial Projections (Based on Non-Pharma Volume)
-
-```{r financial-projections}
-# Simple financial model based on non-pharma volume
-financial_model <- data.frame(
-  Scenario = c("Conservative", "Moderate", "Aggressive"),
-  Market_Penetration_Non_Pharma = c("10%", "25%", "40%"),
-  Annual_Volume_Non_Pharma = c(
-    format(total_quantity * 0.1, big.mark = ","),
-    format(total_quantity * 0.25, big.mark = ","),
-    format(total_quantity * 0.4, big.mark = ",")
-  ),
-  Estimated_Revenue_Range_Non_Pharma = c("$200K - $400K", "$500K - $1M", "$800K - $1.5M") # Example figures
-)
-
-kable(financial_model,
-      caption = "Revenue Projections Based on Non-Pharmaceutical Market Penetration") %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
-```
-
 ---
 
 <div style="text-align: center; margin-top: 40px; padding: 20px; background-color: #f8f9fa; border-radius: 10px;">

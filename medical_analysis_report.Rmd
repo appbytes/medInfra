@@ -746,57 +746,6 @@ growth_plot <- ggplot(monthly_trends %>% filter(!is.na(Growth_Rate)),
 grid.arrange(monthly_plot, growth_plot, nrow = 2)
 ```
 
-# Business Recommendations
-
-## Priority Action Items
-
-<div class="alert alert-success">
-<h4>Immediate Actions (Week 1-2)</h4>
-<ol>
-<li><strong>Focus on Top 20 A-Class Items:</strong> These represent your highest-volume, lowest-risk market entry points</li>
-<li><strong>Research Pricing:</strong> Get wholesale prices for examination gloves, POCT strips, and NS solutions</li>
-<li><strong>Vendor Outreach:</strong> Contact smaller suppliers for potential partnerships or acquisition</li>
-</ol>
-</div>
-
-<div class="alert alert-info">
-<h4>Medium-term Strategy (Month 1-3)</h4>
-<ol>
-<li><strong>Category Specialization:</strong> Focus on Pharmaceuticals (65% market share) and Surgical supplies</li>
-<li><strong>Inventory Optimization:</strong> Develop reorder points for high-volume consumables</li>
-<li><strong>Customer Acquisition:</strong> Use this hospital's patterns to target similar healthcare facilities</li>
-</ol>
-</div>
-
-<div class="alert alert-warning">
-<h4>Long-term Goals (3-12 months)</h4>
-<ol>
-<li><strong>Technology Integration:</strong> Implement automated ordering systems</li>
-<li><strong>Geographic Expansion:</strong> Scale successful model to other regions</li>
-<li><strong>Value-added Services:</strong> Offer inventory management and forecasting services</li>
-</ol>
-</div>
-
-## Financial Projections
-
-```{r financial-projections}
-# Simple financial model
-financial_model <- data.frame(
-  Scenario = c("Conservative", "Moderate", "Aggressive"),
-  Market_Penetration = c("10%", "25%", "40%"),
-  Annual_Volume = c(
-    format(total_quantity * 0.1, big.mark = ","),
-    format(total_quantity * 0.25, big.mark = ","),
-    format(total_quantity * 0.4, big.mark = ",")
-  ),
-  Estimated_Revenue_Range = c("$500K - $750K", "$1.2M - $1.8M", "$2M - $3M")
-)
-
-kable(financial_model,
-      caption = "Revenue Projections Based on Market Penetration") %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
-```
-
 ---
 
 <div style="text-align: center; margin-top: 40px; padding: 20px; background-color: #f8f9fa; border-radius: 10px;">
