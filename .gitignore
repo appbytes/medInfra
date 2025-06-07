@@ -1,0 +1,37 @@
+# History files
+.Rhistory
+.Rapp.history
+
+# Session Data files
+.RData
+
+# RStudio project files (except the .Rproj file itself)
+.Rproj.user/
+
+# Cache and intermediate files from R Markdown / Quarto
+*_cache/
+*_files/
+*.utf8.md
+*.knit.md
+
+# Temporary or backup files
+*.qmd~
+*~
+
+# Logs and LaTeX intermediate files
+*.log
+*.aux
+*.out
+*.toc
+*.synctex.gz
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Dependency management (optional: ignore if using renv or packrat)
+renv/library/
+renv/python/
+renv/staging/
+packrat/
+
