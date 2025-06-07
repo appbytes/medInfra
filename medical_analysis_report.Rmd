@@ -134,19 +134,56 @@ data <- data %>%
     CATEGORY = trimws(CATEGORY)
   )
 
-# Calculate key metrics
-total_records <- nrow(data)
-total_quantity <- sum(data$QUANTITY, na.rm = TRUE)
-unique_items <- n_distinct(data$ITEM_NAME)
-unique_vendors <- n_distinct(data$VENDOR)
-unique_categories <- n_distinct(data$CATEGORY)
-date_range <- paste(min(data$Date, na.rm = TRUE), "to", max(data$Date, na.rm = TRUE))
+# CATEGORY FILTERING SETUP
+# Define categories for filtering (you can modify this list)
+available_categories <- sort(unique(data$CATEGORY))
+print(paste("Available categories:", paste(available_categories, collapse = ", ")))
+
+# FILTERING FUNCTION
+filter_data_by_categories <- function(data, selected_categories = NULL) {
+  if (is.null(selected_categories) || length(selected_categories) == 0) {
+    return(data)  # Return all data if no filter specified
+  }
+  return(data %>% filter(CATEGORY %in% selected_categories))
+}
+
+# SET YOUR CATEGORY FILTER HERE
+# Options: 
+# 1. Leave as NULL to include all categories
+# 2. Specify one: selected_categories <- c("Pharmaceuticals")
+# 3. Specify multiple: selected_categories <- c("Pharmaceuticals", "Surgical", "Ortho")
+# 4. Exclude categories: selected_categories <- available_categories[!available_categories %in% c("Miscellaneous")]
+
+selected_categories <- NULL  # CHANGE THIS TO FILTER CATEGORIES
+
+# Apply filter
+if (!is.null(selected_categories)) {
+  filtered_data <- filter_data_by_categories(data, selected_categories)
+  filter_message <- paste("Filtered to categories:", paste(selected_categories, collapse = ", "))
+} else {
+  filtered_data <- data
+  filter_message <- "All categories included"
+}
+
+# Calculate key metrics (on filtered data)
+total_records <- nrow(filtered_data)
+total_quantity <- sum(filtered_data$QUANTITY, na.rm = TRUE)
+unique_items <- n_distinct(filtered_data$ITEM_NAME)
+unique_vendors <- n_distinct(filtered_data$VENDOR)
+unique_categories <- n_distinct(filtered_data$CATEGORY)
+date_range <- paste(min(filtered_data$Date, na.rm = TRUE), "to", max(filtered_data$Date, na.rm = TRUE))
 ```
 
 # Executive Summary {.tabset}
 
 <div class="alert alert-success">
-<strong>Key Finding:</strong> This analysis reveals significant opportunities for a medical distribution business to optimize hospital supply chains, with potential market entry points worth over 862,000 units annually across 13 medical categories.
+<strong>Key Finding:</strong> This analysis reveals significant opportunities for a medical distribution business to optimize hospital supply chains, with potential market entry points worth over `r format(total_quantity, big.mark = ",")` units annually across `r unique_categories` medical categories.
+</div>
+
+<div class="alert alert-info">
+<strong>Current Filter:</strong> `r filter_message`<br>
+<strong>Available Categories:</strong> `r paste(available_categories, collapse = ", ")`<br>
+<em>To change filter: Modify the `selected_categories` variable in the data loading section</em>
 </div>
 
 ## Key Performance Indicators
@@ -213,8 +250,8 @@ date_range <- paste(min(data$Date, na.rm = TRUE), "to", max(data$Date, na.rm = T
 </div>
 
 ```{r abc-analysis}
-# Perform ABC Analysis
-abc_analysis <- data %>%
+# Perform ABC Analysis (on filtered data)
+abc_analysis <- filtered_data %>%
   group_by(ITEM_NAME, CATEGORY) %>%
   summarise(
     Total_Quantity = sum(QUANTITY, na.rm = TRUE),
@@ -245,8 +282,15 @@ abc_summary <- abc_analysis %>%
     .groups = 'drop'
   )
 
+# Add filtering information to table
+if (!is.null(selected_categories)) {
+  abc_caption <- paste("ABC Classification Summary - Filtered to:", paste(selected_categories, collapse = ", "))
+} else {
+  abc_caption <- "ABC Classification Summary - All Categories"
+}
+
 kable(abc_summary, 
-      caption = "ABC Classification Summary",
+      caption = abc_caption,
       format.args = list(big.mark = ",")) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 ```
@@ -263,11 +307,21 @@ top_items <- abc_analysis %>%
     Percentage_of_Total = round(Percentage_of_Total, 2)
   )
 
+# Interactive table with category filter capability
 DT::datatable(top_items, 
-              options = list(pageLength = 10, scrollX = TRUE),
-              caption = "Top 20 A-Class Items - Your Primary Focus Areas") %>%
+              options = list(
+                pageLength = 10, 
+                scrollX = TRUE,
+                columnDefs = list(list(targets = 1, visible = TRUE))  # Keep category column visible
+              ),
+              filter = 'top',  # Add column filters
+              caption = paste("Top 20 A-Class Items -", ifelse(is.null(selected_categories), "All Categories", paste("Categories:", paste(selected_categories, collapse = ", "))))) %>%
   formatStyle(columns = 1:5, fontSize = '12px')
 ```
+
+<div class="alert alert-warning">
+<strong>💡 Interactive Filtering:</strong> Use the search boxes above each column to further filter results. You can search by item name, category, or any other field to focus on specific products of interest.
+</div>
 
 ### ABC Analysis Visualization
 
@@ -379,8 +433,8 @@ top_item_pct <- round(abc_analysis$Percentage_of_Total[1], 2)
 # Category Performance Analysis
 
 ```{r category-analysis}
-# Category performance metrics
-category_performance <- data %>%
+# Category performance metrics (on filtered data)
+category_performance <- filtered_data %>%
   group_by(CATEGORY) %>%
   summarise(
     Total_Transactions = n(),
@@ -401,16 +455,29 @@ category_performance <- data %>%
   )
 
 # Display category performance table
+category_table_caption <- ifelse(
+  is.null(selected_categories), 
+  "Category Performance Analysis - All Categories", 
+  paste("Category Performance Analysis - Filtered to:", paste(selected_categories, collapse = ", "))
+)
+
 kable(category_performance %>%
         mutate(
           Total_Quantity = format(Total_Quantity, big.mark = ","),
           Avg_Transaction_Size = round(Avg_Transaction_Size, 1),
           Percentage_of_Total = round(Percentage_of_Total, 1)
         ),
-      caption = "Category Performance Analysis") %>%
+      caption = category_table_caption) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
   column_spec(8, color = "white", background = spec_color(category_performance$Percentage_of_Total))
 ```
+
+<div class="alert alert-info">
+<strong>🔍 Category Filtering Options:</strong><br>
+To focus on specific categories, modify the `selected_categories` variable at the top of the report:<br>
+<code>selected_categories <- c("Pharmaceuticals", "Surgical")</code><br>
+<em>Current filter: `r ifelse(is.null(selected_categories), "None (all categories shown)", paste(selected_categories, collapse = ", "))`</em>
+</div>
 
 ## Category Distribution Visualization
 
@@ -465,8 +532,8 @@ if (treemap_available) {
 # Vendor Analysis
 
 ```{r vendor-analysis}
-# Vendor performance analysis
-vendor_performance <- data %>%
+# Vendor performance analysis (on filtered data)
+vendor_performance <- filtered_data %>%
   group_by(VENDOR) %>%
   summarise(
     Total_Transactions = n(),
@@ -496,10 +563,31 @@ top_vendors <- vendor_performance %>%
     Market_Share = round(Market_Share, 2)
   )
 
+vendor_table_caption <- ifelse(
+  is.null(selected_categories), 
+  "Top 15 Vendors by Volume - All Categories", 
+  paste("Top 15 Vendors by Volume - Categories:", paste(selected_categories, collapse = ", "))
+)
+
 kable(top_vendors,
-      caption = "Top 15 Vendors by Volume") %>%
+      caption = vendor_table_caption) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
   column_spec(7, color = "white", background = spec_color(as.numeric(gsub(",", "", top_vendors$Market_Share))))
+```
+
+### Interactive Vendor Analysis
+
+```{r vendor-interactive}
+# Create interactive vendor table
+DT::datatable(vendor_performance %>%
+                mutate(
+                  Market_Share = round(Market_Share, 2),
+                  Avg_Transaction_Size = round(Avg_Transaction_Size, 1)
+                ), 
+              options = list(pageLength = 10, scrollX = TRUE),
+              filter = 'top',
+              caption = paste("Interactive Vendor Analysis -", ifelse(is.null(selected_categories), "All Categories", paste("Categories:", paste(selected_categories, collapse = ", "))))) %>%
+  formatStyle(columns = 1:8, fontSize = '11px')
 ```
 
 ## Vendor Consolidation Opportunities
@@ -528,8 +616,8 @@ kable(consolidation_opportunities,
 # Time Series Analysis
 
 ```{r time-series-analysis}
-# Monthly trends
-monthly_trends <- data %>%
+# Monthly trends (on filtered data)
+monthly_trends <- filtered_data %>%
   group_by(Month_Year) %>%
   summarise(
     Total_Quantity = sum(QUANTITY, na.rm = TRUE),
@@ -544,14 +632,41 @@ monthly_trends <- data %>%
   )
 
 # Monthly trends table
+trends_caption <- ifelse(
+  is.null(selected_categories), 
+  "Monthly Consumption Trends - All Categories", 
+  paste("Monthly Consumption Trends - Categories:", paste(selected_categories, collapse = ", "))
+)
+
 kable(monthly_trends %>%
         mutate(
           Total_Quantity = format(Total_Quantity, big.mark = ","),
           Growth_Rate = round(Growth_Rate, 1),
           Moving_Avg_3M = round(Moving_Avg_3M, 0)
         ),
-      caption = "Monthly Consumption Trends") %>%
+      caption = trends_caption) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+### Category-Specific Monthly Trends
+
+```{r monthly-by-category}
+# Monthly trends by category (filtered)
+monthly_category_trends <- filtered_data %>%
+  group_by(Month_Year, CATEGORY) %>%
+  summarise(
+    Total_Quantity = sum(QUANTITY, na.rm = TRUE),
+    Transaction_Count = n(),
+    .groups = 'drop'
+  ) %>%
+  arrange(Month_Year)
+
+# Interactive monthly trends table
+DT::datatable(monthly_category_trends, 
+              options = list(pageLength = 15, scrollX = TRUE),
+              filter = 'top',
+              caption = paste("Monthly Trends by Category -", ifelse(is.null(selected_categories), "All Categories", paste("Filtered Categories:", paste(selected_categories, collapse = ", "))))) %>%
+  formatStyle(columns = 1:4, fontSize = '11px')
 ```
 
 ## Monthly Trend Visualization
