@@ -1,0 +1,699 @@
+---
+title: "Medical Distribution Business Analysis - Non-Pharmaceuticals Focus"
+subtitle: "Hospital Consumption Data Analysis (Excluding Pharmaceuticals) - 13 Month Study"
+author: "Medical Distribution Business Analysis"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: cosmo
+    highlight: tango
+    toc: true
+    toc_float: 
+      collapsed: false
+      smooth_scroll: true
+    toc_depth: 3
+    number_sections: true
+    code_folding: hide
+    df_print: paged
+    fig_width: 12
+    fig_height: 8
+---
+
+```{css, echo=FALSE}
+/* Enhanced CSS for Non-Pharma Analysis */
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  line-height: 1.6;
+  background-color: #f8f9fa;
+}
+
+.main-container {
+  max-width: 1200px;
+  background-color: white;
+  box-shadow: 0 0 20px rgba(0,0,0,0.1);
+  border-radius: 10px;
+  margin: 20px auto;
+  padding: 30px;
+}
+
+h1, h2, h3 {
+  color: #2c3e50;
+  border-bottom: 2px solid #3498db;
+  padding-bottom: 10px;
+}
+
+h1 {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 20px;
+  border-radius: 10px;
+  text-align: center;
+  border-bottom: none;
+}
+
+.alert {
+  padding: 20px;
+  margin-bottom: 25px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.alert-success {
+  background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+  border-color: #c3e6cb;
+  color: #155724;
+}
+
+.alert-info {
+  background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+  border-color: #bee5eb;
+  color: #0c5460;
+}
+
+.alert-warning {
+  background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+  border-color: #ffeaa7;
+  color: #856404;
+}
+
+.alert-danger {
+  background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+  border-color: #f5c6cb;
+  color: #721c24;
+}
+
+.kpi-box {
+  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+  color: white;
+  padding: 25px;
+  border-radius: 15px;
+  text-align: center;
+  margin: 15px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  transition: transform 0.3s ease;
+}
+
+.kpi-box:hover {
+  transform: translateY(-5px);
+}
+
+.kpi-number {
+  font-size: 2.5em;
+  font-weight: bold;
+  display: block;
+}
+
+.kpi-label {
+  font-size: 1em;
+  opacity: 0.9;
+  margin-top: 10px;
+}
+
+.exclusion-notice {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+  color: white;
+  padding: 20px;
+  border-radius: 10px;
+  text-align: center;
+  margin: 20px 0;
+  font-weight: bold;
+  font-size: 1.1em;
+}
+
+.highlight-box {
+  background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+  color: white;
+  padding: 20px;
+  border-radius: 10px;
+  margin: 20px 0;
+}
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  fig.align = 'center',
+  cache = TRUE
+)
+
+# Function to install and load packages
+install_and_load <- function(packages) {
+  for (package in packages) {
+    if (!require(package, character.only = TRUE)) {
+      install.packages(package, dependencies = TRUE)
+      library(package, character.only = TRUE)
+    }
+  }
+}
+
+# Required packages
+required_packages <- c(
+  "readr", "dplyr", "ggplot2", "plotly", "DT", 
+  "lubridate", "tidyr", "scales", "knitr", 
+  "kableExtra", "gridExtra", "viridis", "zoo"
+)
+
+# Install and load packages
+install_and_load(required_packages)
+
+# Try to load optional packages
+if (!require(treemapify, quietly = TRUE)) {
+  message("treemapify package not available - treemap visualization will be skipped")
+  treemap_available <- FALSE
+} else {
+  treemap_available <- TRUE
+}
+```
+
+```{r load-data, include=FALSE}
+# Load and prepare data
+data <- read_csv("cleanedup_data_and_merged_and_refined.csv")
+
+# Data cleaning
+colnames(data) <- gsub(" ", "_", colnames(data))
+data <- data %>%
+  mutate(
+    Date = paste(YEAR, MONTH, "01", sep = "-"),
+    Date = as.Date(Date, format = "%Y-%B-%d"),
+    Month_Year = format(Date, "%Y-%m"),
+    ITEM_NAME = trimws(ITEM_NAME),
+    VENDOR = trimws(VENDOR),
+    CATEGORY = trimws(CATEGORY)
+  )
+
+# EXCLUDE PHARMACEUTICALS FROM ALL ANALYSIS
+# Filter out Pharmaceuticals category completely
+filtered_data <- data %>%
+  filter(CATEGORY != "Pharmaceuticals")
+
+# Get available categories (excluding Pharmaceuticals)
+available_categories <- sort(unique(filtered_data$CATEGORY))
+excluded_pharma_records <- nrow(data) - nrow(filtered_data)
+excluded_pharma_quantity <- sum(data$QUANTITY[data$CATEGORY == "Pharmaceuticals"], na.rm = TRUE)
+
+# Calculate key metrics (on non-pharmaceutical data only)
+total_records <- nrow(filtered_data)
+total_quantity <- sum(filtered_data$QUANTITY, na.rm = TRUE)
+unique_items <- n_distinct(filtered_data$ITEM_NAME)
+unique_vendors <- n_distinct(filtered_data$VENDOR)
+unique_categories <- n_distinct(filtered_data$CATEGORY)
+date_range <- paste(min(filtered_data$Date, na.rm = TRUE), "to", max(filtered_data$Date, na.rm = TRUE))
+
+# Original totals for comparison
+original_total_records <- nrow(data)
+original_total_quantity <- sum(data$QUANTITY, na.rm = TRUE)
+pharma_percentage <- round((excluded_pharma_quantity / original_total_quantity) * 100, 1)
+```
+
+<div class="exclusion-notice">
+🚫 <strong>PHARMACEUTICALS EXCLUDED</strong> 🚫<br>
+This analysis focuses on NON-PHARMACEUTICAL opportunities only<br>
+Excluded: `r format(excluded_pharma_records, big.mark = ",")` pharmaceutical records (`r format(excluded_pharma_quantity, big.mark = ",")` units - `r pharma_percentage`% of total volume)
+</div>
+
+# Executive Summary {.tabset}
+
+<div class="alert alert-success">
+<strong>Strategic Focus:</strong> With pharmaceuticals excluded, this analysis reveals `r format(total_quantity, big.mark = ",")` units of annual consumption across `r unique_categories` non-pharmaceutical medical categories, representing significant untapped distribution opportunities beyond the traditional pharma market.
+</div>
+
+<div class="alert alert-info">
+<strong>Analysis Scope:</strong> Non-Pharmaceutical Categories Only<br>
+<strong>Categories Analyzed:</strong> `r paste(available_categories, collapse = ", ")`<br>
+<strong>Market Focus:</strong> Medical supplies, surgical equipment, consumables, and specialized healthcare products
+</div>
+
+## Key Performance Indicators
+
+<div style="display: flex; flex-wrap: wrap;">
+<div class="kpi-box" style="flex: 1;">
+<div class="kpi-number">`r format(total_quantity, big.mark = ",")`</div>
+<div class="kpi-label">Non-Pharma Units Consumed</div>
+</div>
+
+<div class="kpi-box" style="flex: 1;">
+<div class="kpi-number">`r unique_items`</div>
+<div class="kpi-label">Unique Non-Pharma Products</div>
+</div>
+
+<div class="kpi-box" style="flex: 1;">
+<div class="kpi-number">`r unique_vendors`</div>
+<div class="kpi-label">Non-Pharma Vendors</div>
+</div>
+
+<div class="kpi-box" style="flex: 1;">
+<div class="kpi-number">`r unique_categories`</div>
+<div class="kpi-label">Medical Categories</div>
+</div>
+</div>
+
+## Strategic Opportunities (Non-Pharmaceutical Focus)
+
+<div class="highlight-box">
+<strong>Why Focus on Non-Pharmaceuticals?</strong>
+<ul>
+<li><strong>🎯 Less Competition:</strong> Fewer large distributors dominate non-pharma medical supplies</li>
+<li><strong>💰 Higher Margins:</strong> Specialized medical equipment and supplies often have better profit margins</li>
+<li><strong>🤝 Relationship Building:</strong> Direct relationships with medical departments vs. pharmacy procurement</li>
+<li><strong>📈 Growth Potential:</strong> Surgical and specialized equipment markets are rapidly expanding</li>
+<li><strong>⚡ Faster Entry:</strong> Fewer regulatory barriers compared to pharmaceutical distribution</li>
+</ul>
+</div>
+
+<div class="alert alert-info">
+<strong>Immediate Non-Pharma Opportunities:</strong>
+<ul>
+<li><strong>Surgical Supplies:</strong> High-value, complex procurement needs</li>
+<li><strong>Medical Consumables:</strong> Steady demand, predictable ordering patterns</li>
+<li><strong>Specialized Equipment:</strong> Ortho, cardiology, radiology supplies</li>
+<li><strong>Wound Care & Respiratory:</strong> Growing market segments</li>
+</ul>
+</div>
+
+# Market Analysis (Non-Pharmaceutical)
+
+## ABC Classification Analysis
+
+### What is ABC Analysis for Medical Supplies?
+
+<div class="alert alert-info">
+<h4>📊 ABC Analysis for Non-Pharmaceutical Medical Distribution</h4>
+<p><strong>ABC Analysis</strong> for medical supplies helps identify which non-pharmaceutical products drive the most volume and revenue opportunity:</p>
+
+<ul>
+<li><strong>Class A (High Priority):</strong> High-volume medical consumables, surgical supplies, and equipment that represent <strong>80% of non-pharma consumption</strong>. These include examination gloves, syringes, surgical instruments, and monitoring equipment.</li>
+
+<li><strong>Class B (Medium Priority):</strong> Specialized medical devices and supplies representing <strong>15% of consumption</strong>. These include category-specific instruments, diagnostic supplies, and periodic replacement items.</li>
+
+<li><strong>Class C (Low Priority):</strong> Niche medical supplies and equipment representing <strong>5% of consumption</strong>. These include specialized tools, rarely-used equipment, and emergency-only supplies.</li>
+</ul>
+
+<p><strong>Non-Pharmaceutical Distribution Advantages:</strong></p>
+<ul>
+<li>🎯 <strong>Direct Department Sales:</strong> Sell directly to surgery, radiology, orthopedics departments</li>
+<li>💰 <strong>Value-Added Services:</strong> Equipment training, maintenance, custom kitting</li>
+<li>📈 <strong>Sticky Relationships:</strong> Equipment compatibility creates vendor loyalty</li>
+<li>⚡ <strong>Faster Decision Making:</strong> Department heads vs. pharmacy committees</li>
+</ul>
+</div>
+
+```{r abc-analysis-nonpharma}
+# Perform ABC Analysis on non-pharmaceutical data
+abc_analysis <- filtered_data %>%
+  group_by(ITEM_NAME, CATEGORY) %>%
+  summarise(
+    Total_Quantity = sum(QUANTITY, na.rm = TRUE),
+    Transaction_Count = n(),
+    Avg_Quantity_Per_Transaction = mean(QUANTITY, na.rm = TRUE),
+    .groups = 'drop'
+  ) %>%
+  arrange(desc(Total_Quantity)) %>%
+  mutate(
+    Cumulative_Quantity = cumsum(Total_Quantity),
+    Total_All_Items = sum(Total_Quantity),
+    Percentage_of_Total = (Total_Quantity / Total_All_Items) * 100,
+    Cumulative_Percentage = (Cumulative_Quantity / Total_All_Items) * 100,
+    ABC_Class = case_when(
+      Cumulative_Percentage <= 80 ~ "A",
+      Cumulative_Percentage <= 95 ~ "B",
+      TRUE ~ "C"
+    )
+  )
+
+# ABC Summary
+abc_summary <- abc_analysis %>%
+  group_by(ABC_Class) %>%
+  summarise(
+    Items = n(),
+    Total_Quantity = sum(Total_Quantity),
+    Percentage_of_Volume = (sum(Total_Quantity) / sum(abc_analysis$Total_Quantity)) * 100,
+    .groups = 'drop'
+  )
+
+kable(abc_summary, 
+      caption = "ABC Classification Summary - Non-Pharmaceutical Products Only",
+      format.args = list(big.mark = ",")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+### Top 20 High-Priority Non-Pharmaceutical Items (Class A)
+
+```{r top-nonpharma-items}
+top_items <- abc_analysis %>%
+  filter(ABC_Class == "A") %>%
+  head(20) %>%
+  select(ITEM_NAME, CATEGORY, Total_Quantity, Transaction_Count, Percentage_of_Total) %>%
+  mutate(
+    Total_Quantity = format(Total_Quantity, big.mark = ","),
+    Percentage_of_Total = round(Percentage_of_Total, 2)
+  )
+
+DT::datatable(top_items, 
+              options = list(
+                pageLength = 10, 
+                scrollX = TRUE,
+                columnDefs = list(list(targets = 1, visible = TRUE))
+              ),
+              filter = 'top',
+              caption = "Top 20 A-Class Non-Pharmaceutical Items - Primary Market Entry Targets") %>%
+  formatStyle(columns = 1:5, fontSize = '12px')
+```
+
+<div class="alert alert-warning">
+<strong>💡 Market Entry Strategy:</strong> These top 20 non-pharmaceutical items represent your best opportunities for quick market penetration. Focus on building relationships with departments that heavily use these supplies.
+</div>
+
+### Non-Pharmaceutical ABC Visualization
+
+```{r abc-viz-nonpharma, fig.height=10}
+# ABC Distribution Chart
+abc_plot1 <- ggplot(abc_summary, aes(x = ABC_Class, y = Percentage_of_Volume, fill = ABC_Class)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = paste0(round(Percentage_of_Volume, 1), "%")), 
+            vjust = -0.5, size = 5, fontface = "bold") +
+  scale_fill_manual(values = c("A" = "#e74c3c", "B" = "#f39c12", "C" = "#3498db")) +
+  labs(title = "Non-Pharmaceutical ABC Analysis - Volume Distribution",
+       subtitle = "Focus on Class A items for maximum non-pharma market impact",
+       x = "ABC Class", y = "Percentage of Total Volume") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, hjust = 0.5),
+    plot.subtitle = element_text(size = 12, hjust = 0.5),
+    axis.text = element_text(size = 12),
+    legend.position = "none"
+  )
+
+# Top 15 non-pharma items bar chart
+top_15_items <- abc_analysis %>% head(15)
+
+abc_plot2 <- ggplot(top_15_items, aes(x = reorder(ITEM_NAME, Total_Quantity), 
+                                      y = Total_Quantity, fill = ABC_Class)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_manual(values = c("A" = "#e74c3c", "B" = "#f39c12")) +
+  labs(title = "Top 15 Non-Pharmaceutical Items by Volume",
+       x = "Item Name", y = "Total Quantity") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, hjust = 0.5),
+    axis.text.y = element_text(size = 10)
+  )
+
+grid.arrange(abc_plot1, abc_plot2, nrow = 2)
+```
+
+## Non-Pharmaceutical ABC Analysis Summary
+
+```{r abc-summary-nonpharma}
+# Calculate detailed ABC insights
+abc_insights <- abc_analysis %>%
+  group_by(ABC_Class) %>%
+  summarise(
+    Number_of_Items = n(),
+    Total_Volume = sum(Total_Quantity),
+    Avg_Volume_per_Item = mean(Total_Quantity),
+    Min_Volume = min(Total_Quantity),
+    Max_Volume = max(Total_Quantity),
+    .groups = 'drop'
+  ) %>%
+  mutate(
+    Percentage_of_Items = (Number_of_Items / sum(Number_of_Items)) * 100,
+    Percentage_of_Volume = (Total_Volume / sum(Total_Volume)) * 100
+  )
+
+kable(abc_insights %>%
+        mutate(
+          Total_Volume = format(Total_Volume, big.mark = ","),
+          Avg_Volume_per_Item = format(round(Avg_Volume_per_Item, 0), big.mark = ","),
+          Min_Volume = format(Min_Volume, big.mark = ","),
+          Max_Volume = format(Max_Volume, big.mark = ","),
+          Percentage_of_Items = paste0(round(Percentage_of_Items, 1), "%"),
+          Percentage_of_Volume = paste0(round(Percentage_of_Volume, 1), "%")
+        ),
+      caption = "Detailed Non-Pharmaceutical ABC Analysis") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+
+# Key metrics for summary
+class_a_items <- sum(abc_insights$Number_of_Items[abc_insights$ABC_Class == "A"])
+class_a_volume_pct <- round(abc_insights$Percentage_of_Volume[abc_insights$ABC_Class == "A"], 1)
+class_a_items_pct <- round(abc_insights$Percentage_of_Items[abc_insights$ABC_Class == "A"], 1)
+
+top_single_item <- abc_analysis$ITEM_NAME[1]
+top_item_volume <- format(abc_analysis$Total_Quantity[1], big.mark = ",")
+top_item_pct <- round(abc_analysis$Percentage_of_Total[1], 2)
+```
+
+<div class="alert alert-success">
+<h4>🎯 Non-Pharmaceutical Market Opportunities</h4>
+
+<strong>Focused Market Intelligence:</strong>
+<ul>
+<li>📊 <strong>Class A Focus:</strong> Only `r class_a_items` non-pharma items (`r class_a_items_pct`% of products) drive `r class_a_volume_pct`% of total non-pharmaceutical consumption</li>
+<li>🥇 <strong>Top Opportunity:</strong> "`r top_single_item`" represents `r top_item_volume` units (`r top_item_pct`% of non-pharma volume)</li>
+<li>💡 <strong>Strategic Advantage:</strong> Non-pharma market is less saturated than pharmaceutical distribution</li>
+</ul>
+
+<strong>Non-Pharmaceutical Distribution Strategy:</strong>
+<ul>
+<li>🎯 <strong>Department-Specific Approach:</strong> Target surgery, radiology, orthopedics, cardiology departments directly</li>
+<li>💰 <strong>Value-Added Services:</strong> Offer equipment training, maintenance contracts, custom supply kits</li>
+<li>📈 <strong>Relationship Leverage:</strong> Equipment compatibility creates switching costs and vendor loyalty</li>
+<li>⚡ <strong>Faster Sales Cycles:</strong> Department managers make quicker decisions than pharmacy committees</li>
+</ul>
+
+<strong>Operational Focus Areas:</strong>
+<ul>
+<li><strong>Class A (High-Volume Consumables):</strong> Examination gloves, syringes, monitoring supplies - daily delivery, safety stock</li>
+<li><strong>Class B (Specialized Equipment):</strong> Surgical instruments, diagnostic devices - weekly reviews, just-in-time delivery</li>
+<li><strong>Class C (Niche Supplies):</strong> Emergency equipment, rare instruments - quarterly reviews, direct-from-manufacturer</li>
+</ul>
+</div>
+
+# Category Performance Analysis (Non-Pharmaceutical)
+
+```{r category-performance-nonpharma}
+# Category performance metrics (non-pharmaceutical only)
+category_performance <- filtered_data %>%
+  group_by(CATEGORY) %>%
+  summarise(
+    Total_Transactions = n(),
+    Total_Quantity = sum(QUANTITY, na.rm = TRUE),
+    Unique_Items = n_distinct(ITEM_NAME),
+    Unique_Vendors = n_distinct(VENDOR),
+    Avg_Transaction_Size = mean(QUANTITY, na.rm = TRUE),
+    .groups = 'drop'
+  ) %>%
+  arrange(desc(Total_Quantity)) %>%
+  mutate(
+    Percentage_of_Total = (Total_Quantity / sum(Total_Quantity)) * 100,
+    Market_Priority = case_when(
+      Percentage_of_Total >= 20 ~ "High Priority",
+      Percentage_of_Total >= 5 ~ "Medium Priority",
+      TRUE ~ "Low Priority"
+    ),
+    Business_Opportunity = case_when(
+      Percentage_of_Total >= 15 ~ "Major Market",
+      Percentage_of_Total >= 5 ~ "Significant Market", 
+      TRUE ~ "Niche Market"
+    )
+  )
+
+# Create and display the table using DT
+category_table <- category_performance %>%
+  mutate(
+    Total_Quantity = format(Total_Quantity, big.mark = ","),
+    Avg_Transaction_Size = round(Avg_Transaction_Size, 1),
+    Percentage_of_Total = paste0(round(Percentage_of_Total, 1), "%")
+  )
+
+# Print the caption
+cat("<h4>Non-Pharmaceutical Category Performance Analysis</h4>")
+
+# Use DT::datatable for better HTML rendering
+DT::datatable(category_table, 
+              options = list(pageLength = 10, dom = 'ft'),
+              rownames = FALSE,
+              class = 'cell-border stripe')
+```
+
+<div class="alert alert-info">
+<strong>🏥 Non-Pharmaceutical Category Insights:</strong><br>
+<strong>High-Volume Categories:</strong> Focus on categories with >10% market share for immediate impact<br>
+<strong>Specialized Markets:</strong> Smaller categories often have higher margins and less competition<br>
+<strong>Vendor Fragmentation:</strong> Categories with many vendors offer consolidation opportunities
+</div>
+
+## Non-Pharmaceutical Category Visualization
+
+```{r category-viz-nonpharma, fig.height=12}
+# Category pie chart (non-pharma only)
+pie_plot <- ggplot(category_performance, aes(x = "", y = Percentage_of_Total, fill = CATEGORY)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0) +
+  labs(title = "Non-Pharmaceutical Market Share by Category") +
+  theme_void() +
+  theme(
+    plot.title = element_text(size = 16, hjust = 0.5),
+    legend.position = "right"
+  ) +
+  scale_fill_viridis_d()
+
+# Category bar chart
+bar_plot <- ggplot(category_performance, aes(x = reorder(CATEGORY, Total_Quantity), 
+                                            y = Total_Quantity, fill = Percentage_of_Total)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_viridis_c() +
+  labs(title = "Non-Pharmaceutical Category Volume Distribution", 
+       x = "Medical Category", y = "Total Quantity",
+       fill = "% of Total") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 16, hjust = 0.5)) +
+  scale_y_continuous(labels = comma)
+
+grid.arrange(pie_plot, bar_plot, nrow = 2)
+```
+
+# Vendor Analysis (Non-Pharmaceutical)
+
+```{r vendor-analysis-nonpharma}
+# Vendor performance analysis (non-pharmaceutical only)
+vendor_performance <- filtered_data %>%
+  group_by(VENDOR) %>%
+  summarise(
+    Total_Transactions = n(),
+    Total_Quantity = sum(QUANTITY, na.rm = TRUE),
+    Unique_Items = n_distinct(ITEM_NAME),
+    Categories_Served = n_distinct(CATEGORY),
+    Avg_Transaction_Size = mean(QUANTITY, na.rm = TRUE),
+    .groups = 'drop'
+  ) %>%
+  arrange(desc(Total_Quantity)) %>%
+  mutate(
+    Market_Share = (Total_Quantity / sum(Total_Quantity)) * 100,
+    Vendor_Type = case_when(
+      Market_Share >= 10 ~ "Major Non-Pharma Supplier",
+      Market_Share >= 5 ~ "Significant Non-Pharma Supplier",
+      Market_Share >= 1 ~ "Regular Non-Pharma Supplier",
+      TRUE ~ "Small Non-Pharma Supplier"
+    )
+  )
+
+# Top 15 non-pharma vendors table
+top_vendors <- vendor_performance %>% 
+  head(15) %>%
+  mutate(
+    Total_Quantity = format(Total_Quantity, big.mark = ","),
+    Avg_Transaction_Size = round(Avg_Transaction_Size, 1),
+    Market_Share = round(Market_Share, 2)
+  )
+
+kable(top_vendors,
+      caption = "Top 15 Non-Pharmaceutical Vendors by Volume") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+### Interactive Non-Pharmaceutical Vendor Analysis
+
+```{r vendor-interactive-nonpharma}
+# Create interactive vendor table
+DT::datatable(vendor_performance %>%
+                mutate(
+                  Market_Share = round(Market_Share, 2),
+                  Avg_Transaction_Size = round(Avg_Transaction_Size, 1)
+                ), 
+              options = list(pageLength = 10, scrollX = TRUE),
+              filter = 'top',
+              caption = "Interactive Non-Pharmaceutical Vendor Analysis - Identify Partnership & Consolidation Targets") %>%
+  formatStyle(columns = 1:8, fontSize = '11px')
+```
+
+## Non-Pharmaceutical Vendor Consolidation Opportunities
+
+```{r vendor-consolidation-nonpharma}
+# Identify consolidation opportunities in non-pharma space
+consolidation_opportunities <- vendor_performance %>%
+  filter(Vendor_Type %in% c("Small Non-Pharma Supplier", "Regular Non-Pharma Supplier")) %>%
+  summarise(
+    Vendors_to_Replace = n(),
+    Combined_Volume = sum(as.numeric(gsub(",", "", Total_Quantity))),
+    Combined_Transactions = sum(Total_Transactions),
+    Average_Market_Share = mean(Market_Share),
+    .groups = 'drop'
+  )
+
+kable(consolidation_opportunities,
+      caption = "Non-Pharmaceutical Vendor Consolidation Opportunity",
+      format.args = list(big.mark = ",")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+<div class="alert alert-warning">
+<strong>🎯 Non-Pharma Consolidation Strategy:</strong> `r consolidation_opportunities$Vendors_to_Replace` smaller non-pharmaceutical vendors could be consolidated, representing `r format(consolidation_opportunities$Combined_Volume, big.mark = ",")` units of business opportunity. This market is less competitive than pharmaceuticals, offering better partnership terms.
+</div>
+
+# Time Series Analysis (Non-Pharmaceutical)
+
+```{r time-series-nonpharma}
+# Monthly trends (non-pharmaceutical only)
+monthly_trends <- filtered_data %>%
+  group_by(Month_Year) %>%
+  summarise(
+    Total_Quantity = sum(QUANTITY, na.rm = TRUE),
+    Transaction_Count = n(),
+    Unique_Items = n_distinct(ITEM_NAME),
+    .groups = 'drop'
+  ) %>%
+  arrange(Month_Year) %>%
+  mutate(
+    Growth_Rate = (Total_Quantity - lag(Total_Quantity)) / lag(Total_Quantity) * 100,
+    Moving_Avg_3M = zoo::rollmean(Total_Quantity, k = 3, fill = NA, align = "right")
+  )
+
+kable(monthly_trends %>%
+        mutate(
+          Total_Quantity = format(Total_Quantity, big.mark = ","),
+          Growth_Rate = round(Growth_Rate, 1),
+          Moving_Avg_3M = round(Moving_Avg_3M, 0)
+        ),
+      caption = "Monthly Non-Pharmaceutical Consumption Trends") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+## Monthly Non-Pharmaceutical Trend Visualization
+
+```{r monthly-trends-viz-nonpharma, fig.height=10}
+# Monthly consumption plot (non-pharma)
+monthly_plot <- ggplot(monthly_trends, aes(x = Month_Year)) +
+  geom_line(aes(y = Total_Quantity, group = 1), color = "#e74c3c", size = 1.2) +
+  geom_point(aes(y = Total_Quantity), color = "#2c3e50", size = 2) +
+  geom_line(aes(y = Moving_Avg_3M, group = 1), color = "#f39c12", size = 1, linetype = "dashed") +
+  labs(title = "Monthly Non-Pharmaceutical Consumption Trends",
+       subtitle = "Red line: Actual consumption, Orange line: 3-month moving average",
+       x = "Month-Year", y = "Total Quantity") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, hjust = 0.5),
+    plot.subtitle = element_text(size = 12, hjust = 0.5),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) +
+  scale_y_continuous(labels = comma)
+
+# Growth rate plot (non-pharma)
+growth_plot <- ggplot(monthly_trends %>% filter(!is.na(Growth_Rate)), 
+                     aes(x = Month_Year, y = Growth_Rate)) +
+  geom_bar(stat = "identity", fill = "#e74c3c") +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(title = "Non-Pharmaceutical Month-over-Month Growth Rate",
+       x = "Month-Year", y = "Growth Rate (%)") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, hjust = 0.5),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+grid.arrange(monthly_plot, growth_plot, nrow = 2)
+```
