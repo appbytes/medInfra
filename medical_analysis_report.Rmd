@@ -432,7 +432,7 @@ top_item_pct <- round(abc_analysis$Percentage_of_Total[1], 2)
 
 # Category Performance Analysis
 
-```{r category-analysis}
+```{r category-performance-analysis}
 # Category performance metrics (on filtered data)
 category_performance <- filtered_data %>%
   group_by(CATEGORY) %>%
@@ -461,15 +461,22 @@ category_table_caption <- ifelse(
   paste("Category Performance Analysis - Filtered to:", paste(selected_categories, collapse = ", "))
 )
 
-kable(category_performance %>%
-        mutate(
-          Total_Quantity = format(Total_Quantity, big.mark = ","),
-          Avg_Transaction_Size = round(Avg_Transaction_Size, 1),
-          Percentage_of_Total = round(Percentage_of_Total, 1)
-        ),
-      caption = category_table_caption) %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
-  column_spec(8, color = "white", background = spec_color(category_performance$Percentage_of_Total))
+# Create and display the table using DT instead of kable for better HTML rendering
+category_table <- category_performance %>%
+  mutate(
+    Total_Quantity = format(Total_Quantity, big.mark = ","),
+    Avg_Transaction_Size = round(Avg_Transaction_Size, 1),
+    Percentage_of_Total = paste0(round(Percentage_of_Total, 1), "%")
+  )
+
+# Print the caption
+cat(paste0("<h4>", category_table_caption, "</h4>"))
+
+# Use DT::datatable for better HTML rendering
+DT::datatable(category_table, 
+              options = list(pageLength = 10, dom = 'ft'),
+              rownames = FALSE,
+              class = 'cell-border stripe')
 ```
 
 <div class="alert alert-info">
@@ -648,7 +655,42 @@ kable(monthly_trends %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 ```
 
-### Category-Specific Monthly Trends
+## Monthly Trend Visualization
+
+```{r monthly-trends-visualization, fig.height=10}
+# Monthly consumption plot
+monthly_plot <- ggplot(monthly_trends, aes(x = Month_Year)) +
+  geom_line(aes(y = Total_Quantity, group = 1), color = "steelblue", size = 1.2) +
+  geom_point(aes(y = Total_Quantity), color = "red", size = 2) +
+  geom_line(aes(y = Moving_Avg_3M, group = 1), color = "orange", size = 1, linetype = "dashed") +
+  labs(title = "Monthly Consumption Trends",
+       subtitle = "Blue line: Actual consumption, Orange line: 3-month moving average",
+       x = "Month-Year", y = "Total Quantity") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, hjust = 0.5),
+    plot.subtitle = element_text(size = 12, hjust = 0.5),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) +
+  scale_y_continuous(labels = comma)
+
+# Growth rate plot
+growth_plot <- ggplot(monthly_trends %>% filter(!is.na(Growth_Rate)), 
+                     aes(x = Month_Year, y = Growth_Rate)) +
+  geom_bar(stat = "identity", fill = "lightcoral") +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(title = "Month-over-Month Growth Rate",
+       x = "Month-Year", y = "Growth Rate (%)") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, hjust = 0.5),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+grid.arrange(monthly_plot, growth_plot, nrow = 2)
+```
+
+## Category-Specific Monthly Trends
 
 ```{r monthly-by-category}
 # Monthly trends by category (filtered)
@@ -761,5 +803,20 @@ kable(financial_model,
 <h3>Report Generated on `r Sys.Date()`</h3>
 <p>This analysis is based on 13 months of actual hospital consumption data<br>
 Total records analyzed: `r format(total_records, big.mark = ",")`<br>
-Data period: `r date_range`</p>
+Data period: `r date_range`<br>
+<strong>Current filter: `r filter_message`</strong></p>
+
+<div class="alert alert-info" style="margin-top: 20px;">
+<h4>🔧 How to Filter Categories</h4>
+<p>To analyze specific categories, modify this line in the data loading section:</p>
+<code>selected_categories <- c("Category1", "Category2")</code>
+
+<p><strong>Available categories:</strong><br>
+`r paste(paste0('"', available_categories, '"'), collapse = ", ")`</p>
+
+<p><strong>Example filters:</strong><br>
+• <code>selected_categories <- c("Pharmaceuticals")</code> - Pharmaceuticals only<br>
+• <code>selected_categories <- c("Pharmaceuticals", "Surgical")</code> - Multiple categories<br>
+• <code>selected_categories <- NULL</code> - All categories (default)</p>
+</div>
 </div>
