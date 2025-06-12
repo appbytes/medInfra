@@ -339,31 +339,126 @@ kable(abc_summary,
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 ```
 
-### Top 20 High-Priority Non-Pharmaceutical Items (Class A)
+### High-Priority Non-Pharmaceutical Items (Class A)
 
-```{r top-nonpharma-items}
-top_items <- abc_analysis %>%
+```{r class-a-nonpharma-items, echo=FALSE}
+class_a_items <- abc_analysis %>%
   filter(ABC_Class == "A") %>%
-  head(20) %>%
   select(ITEM_NAME, CATEGORY, Total_Quantity, Transaction_Count, Percentage_of_Total) %>%
   mutate(
+    Total_Quantity_Num = Total_Quantity, # Keep numeric for sorting
     Total_Quantity = format(Total_Quantity, big.mark = ","),
     Percentage_of_Total = round(Percentage_of_Total, 2)
-  )
+  ) %>%
+  arrange(desc(Total_Quantity_Num)) # Sort by original numeric quantity
 
-DT::datatable(top_items, 
-              options = list(
-                pageLength = 10, 
-                scrollX = TRUE,
-                columnDefs = list(list(targets = 1, visible = TRUE))
-              ),
+DT::datatable(class_a_items %>% select(-Total_Quantity_Num), 
+              caption = "Class A Non-Pharmaceutical Items (High Consumption Volume)",
+              rownames = FALSE,
               filter = 'top',
-              caption = "Top 20 A-Class Non-Pharmaceutical Items - Primary Market Entry Targets") %>%
-  formatStyle(columns = 1:5, fontSize = '12px')
+              extensions = 'Buttons',
+              options = list(
+                pageLength = 25, 
+                scrollX = TRUE,
+                dom = 'Bfrtip',
+                buttons = c('copy', 'csv', 'excel', 'print'),
+                columnDefs = list(list(targets = '_all', className = 'dt-center'))
+              )) %>%
+  formatStyle(columns = 1:ncol(class_a_items %>% select(-Total_Quantity_Num)), fontSize = '12px')
+```
+
+<div class="alert alert-success">
+<strong>🎯 Strategic Focus: Class A Items</strong>
+<p>These items represent approximately 80% of your total non-pharmaceutical consumption volume. Prioritizing these for inventory management, supplier negotiation, and sales efforts will yield the most significant impact.</p>
+<ul>
+  <li>Ensure high availability and optimal stock levels.</li>
+  <li>Negotiate favorable terms with suppliers due to high volume.</li>
+  <li>Target hospital departments that heavily utilize these specific items.</li>
+</ul>
+</div>
+
+### Medium-Priority Non-Pharmaceutical Items (Class B)
+
+```{r class-b-nonpharma-items, echo=FALSE}
+class_b_items <- abc_analysis %>%
+  filter(ABC_Class == "B") %>%
+  select(ITEM_NAME, CATEGORY, Total_Quantity, Transaction_Count, Percentage_of_Total) %>%
+  mutate(
+    Total_Quantity_Num = Total_Quantity, # Keep numeric for sorting
+    Total_Quantity = format(Total_Quantity, big.mark = ","),
+    Percentage_of_Total = round(Percentage_of_Total, 2)
+  ) %>%
+  arrange(desc(Total_Quantity_Num)) # Sort by original numeric quantity
+
+DT::datatable(class_b_items %>% select(-Total_Quantity_Num), 
+              caption = "Class B Non-Pharmaceutical Items (Moderate Consumption Volume)",
+              rownames = FALSE,
+              filter = 'top',
+              extensions = 'Buttons',
+              options = list(
+                pageLength = 25, 
+                scrollX = TRUE,
+                dom = 'Bfrtip',
+                buttons = c('copy', 'csv', 'excel', 'print'),
+                columnDefs = list(list(targets = '_all', className = 'dt-center'))
+              )) %>%
+  formatStyle(columns = 1:ncol(class_b_items %>% select(-Total_Quantity_Num)), fontSize = '12px')
+```
+
+<div class="alert alert-info">
+<strong>⚙️ Managing Class B Items</strong>
+<p>Class B items typically account for the next 15% of consumption volume. While not as critical as Class A, they are still significant.</p>
+<ul>
+  <li>Maintain standard inventory controls and review stock levels periodically.</li>
+  <li>Explore opportunities for consolidating suppliers if multiple vendors provide similar Class B items.</li>
+</ul>
+</div>
+
+### Low-Priority Non-Pharmaceutical Items (Class C)
+
+```{r class-c-nonpharma-items, echo=FALSE}
+class_c_items <- abc_analysis %>%
+  filter(ABC_Class == "C") %>%
+  select(ITEM_NAME, CATEGORY, Total_Quantity, Transaction_Count, Percentage_of_Total) %>%
+  mutate(
+    Total_Quantity_Num = Total_Quantity, # Keep numeric for sorting
+    Total_Quantity = format(Total_Quantity, big.mark = ","),
+    Percentage_of_Total = round(Percentage_of_Total, 2)
+  ) %>%
+  arrange(desc(Total_Quantity_Num)) # Sort by original numeric quantity
+
+DT::datatable(class_c_items %>% select(-Total_Quantity_Num), 
+              caption = "Class C Non-Pharmaceutical Items (Low Consumption Volume)",
+              rownames = FALSE,
+              filter = 'top',
+              extensions = 'Buttons',
+              options = list(
+                pageLength = 25, 
+                scrollX = TRUE,
+                dom = 'Bfrtip',
+                buttons = c('copy', 'csv', 'excel', 'print'),
+                columnDefs = list(list(targets = '_all', className = 'dt-center'))
+              )) %>%
+  formatStyle(columns = 1:ncol(class_c_items %>% select(-Total_Quantity_Num)), fontSize = '12px')
 ```
 
 <div class="alert alert-warning">
-<strong>💡 Market Entry Strategy:</strong> These top 20 non-pharmaceutical items represent your best opportunities for quick market penetration. Focus on building relationships with departments that heavily use these supplies.
+<strong>📦 Handling Class C Items</strong>
+<p>Class C items make up the bulk of your unique product count but only a small fraction (around 5%) of total consumption volume.</p>
+<ul>
+  <li>Implement simplified inventory controls; consider ordering on demand or in larger, less frequent batches.</li>
+  <li>Evaluate if all Class C items are essential or if some can be discontinued or substituted.</li>
+</ul>
+</div>
+
+<div class="alert alert-secondary" style="margin-top: 20px;">
+  <strong>Understanding ABC Classification Tables:</strong>
+  <ul>
+    <li><strong>Class A:</strong> Vital few items, typically ~80% of volume. High management priority.</li>
+    <li><strong>Class B:</strong> Intermediate items, typically next ~15% of volume. Moderate management.</li>
+    <li><strong>Class C:</strong> Trivial many items, typically last ~5% of volume. Simpler controls.</li>
+  </ul>
+  <p>The tables above list all items within each respective class, sorted by their consumption quantity. This allows for detailed review and targeted strategies for each segment of your non-pharmaceutical inventory.</p>
 </div>
 
 ### Non-Pharmaceutical ABC Visualization
